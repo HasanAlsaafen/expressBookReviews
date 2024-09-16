@@ -40,21 +40,44 @@ regd_users.post("/login", (req, res) => {
     return res.status(401).json({ message: "Invalid Login. Check username and password" });
   }
 });
-
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const isbn = req.params.isbn;
-  const review = req.body.review; 
+  const review = req.body.review;
   const book = books[isbn];
+  const username = req.session.authorization.username; // Get the username from the session
 
   if (book) {
     if (review) {
-      book.reviews = book.reviews ;
-      book.reviews.push(review); 
+      // Check if the review already exists and belongs to the current user
+      book.reviews = book.reviews || [];
+      const existingReviewIndex = book.reviews.findIndex(r => r.username === username);
+      
+      if (existingReviewIndex !== -1) {
+        book.reviews[existingReviewIndex].review = review; // Update existing review
+      } else {
+        book.reviews.push({ username, review }); // Add new review
+      }
 
-      return res.status(200).json({ message: "Review added successfully" });
+      return res.status(200).json({ message: "Review added/updated successfully" });
     } else {
       return res.status(400).json({ message: "Review content is required" });
     }
+  } else {
+    return res.status(404).json({ message: "Book not found" });
+  }
+});
+
+// Delete a book review endpoint
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const isbn = req.params.isbn;
+  const book = books[isbn];
+  const username = req.session.authorization.username; // Get the username from the session
+
+  if (book) {
+    // Find and filter out the review that belongs to the current user
+    book.reviews = book.reviews.filter(review => review.username !== username);
+
+    return res.status(200).json({ message: "Review deleted successfully" });
   } else {
     return res.status(404).json({ message: "Book not found" });
   }
